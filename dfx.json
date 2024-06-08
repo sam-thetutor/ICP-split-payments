@@ -1,0 +1,37 @@
+{
+  "canisters": {
+    "SPlitPayment_backend": {
+      "main": "src/SPlitPayment_backend/main.mo",
+      "type": "motoko"
+    },
+    "SPlitPayment_frontend": {
+      "dependencies": [
+        "SPlitPayment_backend"
+      ],
+      "source": [
+        "src/SPlitPayment_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "SPlitPayment_frontend"
+    },
+    "internet_identity": {
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "frontend": {},
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "type": "custom",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
