@@ -1,5 +1,4 @@
 import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
 import TrieMap "mo:base/TrieMap";
 import Text "mo:base/Text";
 import Result "mo:base/Result";
@@ -14,10 +13,12 @@ import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Float "mo:base/Float";
 import Time "mo:base/Time";
+import Buffer "mo:base/Buffer";
+import Error "mo:base/Error";
 import ICPLedgerTypes "./Types/icpledger.types";
 import ICRCLedgerTypes "./Types/icrcledger.types";
 import Types "Types/Types";
-import { toAccount;toSubaccount } "./utils";
+import { toAccount;toSubaccount;toHex } "./utils";
 actor class SPLIT() = this {
 
   let fuzz = Fuzz.Fuzz();
@@ -38,21 +39,55 @@ actor class SPLIT() = this {
 //save the payment history
   private var recurringPayHistory = TrieMap.TrieMap<Text, Types.RecurringPaymentHistory>(Text.equal, Text.hash);
 
+let tokenActor = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai"): ICPLedgerTypes.Actor;
+
+
+//store the principal addres of the store
+var vendorAddress = Buffer.Buffer<{principal:Principal;accountId:Text}>(0);
+
+type VendorData ={principal:?Principal;accountId:?Text};
+
+var vendro : VendorData = {principal=null;accountId=null};
+//add a new vendor Address
+
+public func addVendorAddress(addr_:Principal):async Types.Result<(),Text>{
+  try{
+
+    let accID = await tokenActor.account_identifier({
+      owner=addr_;
+      subaccount=null;
+    });
+
+    let hexAcc = toHex(Blob.toArray(accID));
+    vendro := {principal=?addr_; accountId = ?hexAcc};
+      return #ok;
+  }catch(error){
+    return #err(Error.message(error));
+  }
+};
+
+//return the details about the vendor address.
+public query func getVendorDetails():async VendorData{
+  return vendro;
+};
+
+
+
   //add new address to receive forward payments
   public func addNewCanister(_tokenName : Text, _legCan : Text) : async Types.Result<(), Text> {
+
 
     var latestTransactionIndex : Nat = 0;
     var transferFee = 0;
     switch (_tokenName) {
       case ("ICP") {
-        let ledger = actor (_legCan) : ICPLedgerTypes.Actor;
 
-        let response = await ledger.query_blocks({
+        let response = await tokenActor.query_blocks({
           length = 1;
           start = 1;
         });
 
-        let transFee = await ledger.icrc1_fee();
+        let transFee = await tokenActor.icrc1_fee();
         transferFee :=transFee;
         latestTransactionIndex := Nat64.toNat(response.chain_length) -1;
       };
@@ -128,26 +163,33 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
     return Iter.toArray(addressesToForward.entries());
   };
 
-  // start th monitoring of the canisters
-  public func startBalanceMonitor() : async Result.Result<Nat, Text> {
-    let timer = recurringTimer<system>(#seconds(2), monitorBalances);
-    return #ok(timer);
+  // // start th monitoring of the canisters
+  // public func startBalanceMonitor() : async Result.Result<Nat, Text> {
+  //   let timer = recurringTimer<system>(#seconds(20), monitorBalances);
+  //   return #ok(timer);
+  // };
+
+system func timer(setGlobalTimer : Nat64 -> ()) : async () {
+    let next = Nat64.fromIntWrap(Time.now()) + 1_000_000_000; // 1 seconds
+    setGlobalTimer(next);
+    await monitorBalances();
   };
+
+
+
 
   func monitorBalances() : async () {
     for ((tokenName, data) in indexCanisters.entries()) {
       switch (tokenName) {
         case ("ICP") {
-          let ledger = actor (data.ledgerCan) : ICPLedgerTypes.Actor;
-
-          let response = await ledger.query_blocks({
+          let response = await tokenActor.query_blocks({
             length = 1;
             start = Nat64.fromNat(data.latestTransactionIndex);
           });
           if (Array.size(response.blocks) > 0) {
             Debug.print("we got a block");
             ///update the block number
-            indexCanisters.put(tokenName, { data with latestTransactionIndex = data.latestTransactionIndex +1 });
+            indexCanisters.put(tokenName, { data with latestTransactionIndex = data.latestTransactionIndex + 1 });
             await filterICPTransactions(response.blocks);
           };
         };
@@ -176,22 +218,20 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
 
           Debug.print("icrc transfer in plce");
           //send back the 99% of the received funds minus the transaction fees for all the coming transaction
-          //get the number of the addresses to share the 1%
-          let totalNum = addressesToForward.size();
           let tranFe = await ledger.icrc1_fee();
           //calculate the transactions fees needed
-          let transFees = tranFe * (totalNum + 1);
           //get the 99%
           let percent99ToSend = retrieveAmount(transfer.amount, 0.99);
           //send back the 99% - transaction fees
           Debug.print(" send 99%");
-          ignore await transferICRC(ledger, percent99ToSend - transFees, transfer.from.owner, 100);
+          ignore await transferICRC(ledger, percent99ToSend - tranFe, transfer.from.owner, 100);
           //transfer the 1% amongst all the regiistered addresses in their corresponding percentages
           let percent1ToSend = retrieveAmount(transfer.amount, 0.01);
           Debug.print("send 1%");
           for (rec in addressesToForward.vals()) {
+            //cater for scenarios where the amount to send is less than the transaction fees in the future
             let indShare = retrieveAmount(percent1ToSend, rec.percentage);
-            ignore await transferICRC(ledger, indShare, rec.address, rec.percentage);
+            ignore await transferICRC(ledger, indShare-tranFe, rec.address, rec.percentage);
           };
         };
       };
@@ -211,15 +251,51 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
       case (?transaction) {
         switch (transaction) {
           case (#Transfer details) {
-            Debug.print("hahahhha ,we are almost there");
-            Debug.print("what is happening" # Principal.toText(Principal.fromActor(this)));
-            //   let pArray = Principal.toBlob(Principal.fromActor(this));
+            //get the details about the vendor
+            let accID = await tokenActor.account_identifier({
+                owner=Principal.fromActor(this);
+                subaccount=null;
+              });
+            let toAccount = toHex(Blob.toArray(details.to));
+            let contractAccount = toHex(Blob.toArray(accID));
+            Debug.print("hex account of the trans recipient " # toAccount);
+            Debug.print("hex account of contract : " # contractAccount);
 
-            //   if (Array.equal(Blob.toArray(pArray), details.to, Nat8.equal)) {
-            //     Debug.print("finally");
-            //   } else {
-            //     Debug.print("finally refused");
-            //   };
+
+            if(contractAccount == toAccount){
+              switch(vendro.principal) {
+              case(?vendorPrincipal) { 
+                Debug.print("icp token transfer in plce");
+              let transFee = await tokenActor.icrc1_fee();
+              let percent99ToSend = retrieveAmount(Nat64.toNat(details.amount.e8s), 0.99);
+              Debug.print(" send 99%  ICP to the vendor");
+              await transferICP(vendorPrincipal,percent99ToSend - transFee,99);
+              Debug.print("sending 1% icp to the bne");
+              let percent1ToSend = retrieveAmount(Nat64.toNat(details.amount.e8s), 0.01);
+              for (rec in addressesToForward.vals()) {
+              let indShare = retrieveAmount(percent1ToSend, rec.percentage);
+             await transferICP(rec.address,indShare-transFee, rec.percentage);
+          };
+
+            
+               };
+              case(null) {Debug.print("vendor principal has an error") };
+            };
+            };
+           
+           
+
+
+          //   if(vendro.accountId == null){
+          //     Debug.print("vendor icp account is null")
+          //   }else if(toAccount != vendro.accountId){
+          //     Debug.print(" account of rec does not match vendor address")
+          //   }else{
+          //     Debug.print("icp token transfer in plce");
+          //     
+
+
+          
           };
           case (_) {};
         };
@@ -229,6 +305,73 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
     };
 
   };
+
+
+func transferICP(recip_:Principal,amount_:Nat,per_:Float):async(){
+    Debug.print("we are icp 2");
+  let transferResult = await tokenActor.icrc1_transfer({
+      amount = amount_;
+      fee = null;
+      created_at_time = null;
+      from_subaccount = null;
+      to = { owner = recip_; subaccount = null };
+      memo = null;
+    });
+
+    let transID = fuzz.text.randomAlphabetic(10);
+    let name_ = await tokenActor.icrc1_symbol();
+    Debug.print("token symbol :" # name_);
+    let newHistory : Types.ForwardTransaction = {
+      tokenName = name_;
+      recipient = recip_;
+      amount = amount_;
+      percentage = per_;
+      timestamp = Time.now();
+      isSent = false;
+      errorMessage = null;
+
+    };
+
+    switch (transferResult) {
+      case (#Ok(number)) {
+        Debug.print("icp transfer successful");
+        transactionForwardHIstory.put(transID, { newHistory with isSent = true });
+        // return #success(number);
+      };
+      case (#Err(msg)) {
+        Debug.print("ICP transfer error  ");
+        switch (msg) {
+          case (#BadFee(number)) {
+            Debug.print("Bad Fee");
+            transactionForwardHIstory.put(transID, { newHistory with isSent = false; errorMessage = ?"Bad fee" });
+
+            // return #error("Bad Fee");
+          };
+          case (#GenericError(number)) {
+            Debug.print("err " #number.message);
+            transactionForwardHIstory.put(transID, { newHistory with isSent = false; errorMessage = ?number.message });
+
+            // return #error("Generic");
+          };
+          case (#InsufficientFunds(number)) {
+            Debug.print("insufficient funds");
+            transactionForwardHIstory.put(transID, { newHistory with isSent = false; errorMessage = ?"Insufficient Funds" });
+            // return #error("insufficient funds");
+          };
+          case _ {
+            Debug.print("ICP error err");
+          };
+        };
+        transactionForwardHIstory.put(transID, { newHistory with isSent = false; errorMessage = ?"ICP Error" });
+
+
+      }}
+
+
+};
+
+ 
+
 
   func transferICRC(ledger : ICRCLedgerTypes.Actor, amount_ : Nat, to_ : Principal, perc_ : Float) : async Types.TransferResult {
     //public shared (message) func transfer(amount_ : Nat, to_ : Principal) : async T.TransferResult {
@@ -302,8 +445,7 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
   //let the user deposit money in the special address icp controlled by the canister
   public shared ({ caller }) func depositFunds(amount : Nat) : async Types.Result<(), Text> {
     let account = toAccount({ caller; canister = Principal.fromActor(this) });
-    let icpActor = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai") : ICPLedgerTypes.Actor;
-    let transferResults = await icpActor.icrc2_transfer_from({
+    let transferResults = await tokenActor.icrc2_transfer_from({
       to = account;
       fee = null;
       spender_subaccount = null;
@@ -366,8 +508,7 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
 //deposit money
 public func depositTosubAccount(user:Principal) :async Types.Result<(),Text>{
 
-   let icpActor = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai") : ICPLedgerTypes.Actor;
-    let transferResult = await icpActor.icrc1_transfer(
+    let transferResult = await tokenActor.icrc1_transfer(
         {
           amount = 10000000;
           from_subaccount = null;
@@ -408,8 +549,7 @@ public func depositTosubAccount(user:Principal) :async Types.Result<(),Text>{
 //get the user balance for the special account
 
 public func get_user_balance(user:Principal):async Nat{
-   let icpActor = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai") : ICPLedgerTypes.Actor;
-  let result = await icpActor.icrc1_balance_of({
+  let result = await tokenActor.icrc1_balance_of({
     owner = Principal.fromActor(this);
     subaccount = ?toSubaccount(user)
   });
@@ -421,8 +561,7 @@ public func get_user_balance(user:Principal):async Nat{
 
   func transferMonthlyBill(user:Principal,amount_:Nat):async (){
 
-    let icpActor = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai") : ICPLedgerTypes.Actor;
-    let transferResult = await icpActor.icrc1_transfer(
+    let transferResult = await tokenActor.icrc1_transfer(
         {
           amount = amount_;
           from_subaccount = ?toSubaccount(user);

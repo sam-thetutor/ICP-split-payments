@@ -13,17 +13,17 @@ get all the addresses that need to shared the 1% and send the respective percent
 for tests ??????
 
 
-ICP ledger canister local - bd3sg-teaaa-aaaaa-qaaba-cai
-ckETH ledger canister local - bkyz2-fmaaa-aaaaa-qaaaq-cai
-ckBTC ledger canister local - be2us-64aaa-aaaaa-qaabq-cai
+ICP ledger canister local - bd3sg-teaaa-aaaaa-qaaba-cai      ryjl3-tyaaa-aaaaa-aaaba-cai
+ckETH ledger canister local - bkyz2-fmaaa-aaaaa-qaaaq-cai   ss2fx-dyaaa-aaaar-qacoq-cai
+ckBTC ledger canister local - be2us-64aaa-aaaaa-qaabq-cai   mxzaz-hqaaa-aaaar-qaada-cai
 
 
 
-dfx canister --network local call ckETH_ledger icrc1_transfer '
+dfx canister --network local call ICP_ledger icrc1_transfer '
   (record {
     to=(record {
       owner=(principal "bw4dl-smaaa-aaaaa-qaacq-cai")
     });
-    amount=10_000_000
+    amount=100_000_000
   })
 '
