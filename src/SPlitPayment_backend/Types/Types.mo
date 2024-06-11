@@ -31,6 +31,7 @@ module {
     tokenName : Text;
     ledgerCan : Text;
     latestTransactionIndex : Nat;
+    contractBalance:Nat;
     transferFee:Nat;
   };
 

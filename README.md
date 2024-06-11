@@ -19,11 +19,11 @@ ckBTC ledger canister local - be2us-64aaa-aaaaa-qaabq-cai   mxzaz-hqaaa-aaaar-qa
 
 
 
-dfx canister --network local call ICP_ledger icrc1_transfer '
+dfx canister --network local call ckETH_ledger icrc1_transfer '
   (record {
     to=(record {
       owner=(principal "bw4dl-smaaa-aaaaa-qaacq-cai")
     });
-    amount=100_000_000
+    amount=10_000_000
   })
 '

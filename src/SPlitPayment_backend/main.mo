@@ -79,6 +79,7 @@ public query func getVendorDetails():async VendorData{
 
     var latestTransactionIndex : Nat = 0;
     var transferFee = 0;
+        var conBal :Nat = 0;
     switch (_tokenName) {
       case ("ICP") {
 
@@ -87,8 +88,13 @@ public query func getVendorDetails():async VendorData{
           start = 1;
         });
 
-        let transFee = await tokenActor.icrc1_fee();
-        transferFee :=transFee;
+        transferFee := await tokenActor.icrc1_fee();
+
+         conBal := await tokenActor.icrc1_balance_of({
+          owner=Principal.fromActor(this);
+          subaccount=null
+        });
+
         latestTransactionIndex := Nat64.toNat(response.chain_length) -1;
       };
       case (_) {
@@ -97,8 +103,12 @@ public query func getVendorDetails():async VendorData{
           length = 1;
           start = 1;
         });
-        let transFee = await tokenActor.icrc1_fee();
-        transferFee :=transFee;
+        transferFee := await tokenActor.icrc1_fee();
+        conBal := await tokenActor.icrc1_balance_of({
+          owner=Principal.fromActor(this);
+          subaccount=null
+        });
+
         latestTransactionIndex := Nat64.toNat(response.chain_length) -1;
 
       };
@@ -107,6 +117,7 @@ public query func getVendorDetails():async VendorData{
     let newData : Types.CanisterData = {
       tokenName = _tokenName;
       ledgerCan = _legCan;
+      contractBalance = conBal;
       latestTransactionIndex = latestTransactionIndex;
       transferFee= transferFee;
     };
@@ -169,13 +180,16 @@ public func withdrawICRC(ledger:Text, amount:Nat,rec:Text): async Types.Result<(
   //   return #ok(timer);
   // };
 
-system func timer(setGlobalTimer : Nat64 -> ()) : async () {
-    let next = Nat64.fromIntWrap(Time.now()) + 1_000_000_000; // 1 seconds
-    setGlobalTimer(next);
-    await monitorBalances();
+// system func timer(setGlobalTimer : Nat64 -> ()) : async () {
+//     let next = Nat64.fromIntWrap(Time.now()) + 10_00_000_000; // 0.1 seconds
+//     setGlobalTimer(next);
+//     await monitorBalances();
+//   };
+
+ public func startBalanceMonitor() : async Result.Result<Nat, Text> {
+    let timer = recurringTimer<system>(#seconds(5), monitorBalances);
+    return #ok(timer);
   };
-
-
 
 
   func monitorBalances() : async () {
@@ -216,23 +230,40 @@ system func timer(setGlobalTimer : Nat64 -> ()) : async () {
       case (?transfer) {
         if (Principal.equal(transfer.to.owner, Principal.fromActor(this)) and addressesToForward.size() > 0) {
 
+
+            switch(vendro.principal) {
+              case(?vendorPrincipal) { 
           Debug.print("icrc transfer in plce");
           //send back the 99% of the received funds minus the transaction fees for all the coming transaction
           let tranFe = await ledger.icrc1_fee();
           //calculate the transactions fees needed
           //get the 99%
-          let percent99ToSend = retrieveAmount(transfer.amount, 0.99);
+          let percent99ToSend = retrieveAmount(transfer.amount, 0.5);
           //send back the 99% - transaction fees
           Debug.print(" send 99%");
-          ignore await transferICRC(ledger, percent99ToSend - tranFe, transfer.from.owner, 100);
+          ignore await transferICRC(ledger, percent99ToSend - tranFe,vendorPrincipal, 100);
           //transfer the 1% amongst all the regiistered addresses in their corresponding percentages
-          let percent1ToSend = retrieveAmount(transfer.amount, 0.01);
+          let percent1ToSend = retrieveAmount(transfer.amount, 0.5);
           Debug.print("send 1%");
           for (rec in addressesToForward.vals()) {
             //cater for scenarios where the amount to send is less than the transaction fees in the future
             let indShare = retrieveAmount(percent1ToSend, rec.percentage);
             ignore await transferICRC(ledger, indShare-tranFe, rec.address, rec.percentage);
           };
+
+
+
+ };
+              case(null) {Debug.print("vendor principal has an error") };
+            };
+
+
+
+
+
+
+
+
         };
       };
       case (null) {};
@@ -252,12 +283,13 @@ system func timer(setGlobalTimer : Nat64 -> ()) : async () {
         switch (transaction) {
           case (#Transfer details) {
             //get the details about the vendor
-            let accID = await tokenActor.account_identifier({
-                owner=Principal.fromActor(this);
-                subaccount=null;
-              });
+            // let accID = await tokenActor.account_identifier({
+            //     owner=Principal.fromActor(this);
+            //     subaccount=null;
+            //   });
+
+            let contractAccount = "8bfa91d3919c2cb1cca08087278fc49bd79eb31d0f930690af7663e80c920f22";
             let toAccount = toHex(Blob.toArray(details.to));
-            let contractAccount = toHex(Blob.toArray(accID));
             Debug.print("hex account of the trans recipient " # toAccount);
             Debug.print("hex account of contract : " # contractAccount);
 
@@ -435,7 +467,7 @@ func transferICP(recip_:Principal,amount_:Nat,per_:Float):async(){
   };
 
   //get all the logs for the forwarding history
-  public func get_log_history() : async [(Text, Types.ForwardTransaction)] {
+  public query func get_log_history() : async [(Text, Types.ForwardTransaction)] {
     return Iter.toArray(transactionForwardHIstory.entries());
   };
 
