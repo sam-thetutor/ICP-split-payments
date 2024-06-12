@@ -2,7 +2,7 @@
 # ICP_ledger,ckBTC_ledger and ckETH_ledger
 # start the replica
 dfx start --background --clean
-export NETWORK="local"
+export NETWORK="ic"
 
 # create a new identity that will be the controller of all the token ledger canisters
 echo "ceating new identity MINTER"
@@ -136,33 +136,10 @@ dfx deploy backend --network "${NETWORK}" --argument '
     }
 ' --mode=reinstall -y
 
-# get the account identifier of the smart contract
-echo "fetching the contract identifier for the smart contract"
-export SM_ACC_IDENTIFIER=$(dfx ledger account-id --of-canister backend)
-
-# add the ckBTC, ckETH and ICP ledgers for monitoring
-echo "adding ledgers ICP,ckETH and ckBTX for monitoring"
-dfx canister call backend addNewCanister --network "${NETWORK}" '("ICP","'${ICPLEDGERID}'")'
-# dfx canister call backend addNewCanister --network "${NETWORK}" '("ckETH","'${CKETHLEDGERID}'")'
-# dfx canister call backend addNewCanister --network "${NETWORK}" '("ckBTC","'${CKBTCLEDGERID}'")'
-
-# start the montoring service
-echo "starting the monitoring service"
-# dfx canister call backend --network "${NETWORK}" startBalanceMonitor
-
-# chmod a+x ./send_split_payment.sh
-#  source ./send_split_payment.sh
-
-
-# chmod a+x ./no_vendor.sh
-#  source ./no_vendor.sh
-
-# dfx canister call backend addNewCanister --ic '("ckETH","ss2fx-dyaaa-aaaar-qacoq-cai")'
-# dfx canister call ICP_ledger icrc1_transfer '
-#   (record {
-#     to=(record {
-#       owner=(principal "br5f7-7uaaa-aaaaa-qaaca-cai")
-#     });
-#     amount=100000
-#   })
-# '
+dfx deploy backend --ic --argument '
+    record {
+        icpLedger = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+        monitor= '60';
+        scAccIdentifier = "8bfa91d3919c2cb1cca08087278fc49bd79eb31d0f930690af7663e80c920f22"
+    }
+' --mode=reinstall -y

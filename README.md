@@ -1,29 +1,29 @@
+# Token Spliiting Smart contract
+
+- A smart contract canister that splits tokens deposits in the ratio of 99:1
+- 99% is sent to the vendor's address
+- 1% is sent to the relayer's address
+- Incase the vendor's address is not configured, 99% is refunded to the sender and 1% remains in the custody of the contract
+- Tokens accepted, ICP ckETH,ckBTC and any other token that follows the ICRC token standard
 
 
-for the split payments
+- To  run the project locally
 
-- monitor the balance of the backend canister periodically. if the balance increases, fetch the latest transaction that caused the balance to increase
-the transaction contains the sender and the amount.
+  - Clone it from the repo
 
-return 99% of the received funds back to the sender.
-get all the addresses that need to shared the 1% and send the respective percentages to these addresses.
+```bash
+git clone https://github.com/sam-thetutor/ICP-split-payments
 
--- for the recurring payments, let the user depsit money into the account controlled by the backend canister so that whenever the month ends, the canister can automatically deduct the amount.
+cd ICP-Split-payments
 
-for tests ??????
+./deployCan.sh 
+```
+This will install the necessary canisters for you to start interacting with the project
 
+- To test the project
 
-ICP ledger canister local - bd3sg-teaaa-aaaaa-qaaba-cai      ryjl3-tyaaa-aaaaa-aaaba-cai
-ckETH ledger canister local - bkyz2-fmaaa-aaaaa-qaaaq-cai   ss2fx-dyaaa-aaaar-qacoq-cai
-ckBTC ledger canister local - be2us-64aaa-aaaaa-qaabq-cai   mxzaz-hqaaa-aaaar-qaada-cai
+  - navigate to the tests folder and run
 
-
-
-dfx canister --network local call ckETH_ledger icrc1_transfer '
-  (record {
-    to=(record {
-      owner=(principal "f7oat-iqaaa-aaaal-ajida-cai")
-    });
-    amount=10_000_000
-  })
-'
+```bash
+/deploycanisters.sh
+```

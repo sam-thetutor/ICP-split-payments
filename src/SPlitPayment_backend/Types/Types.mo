@@ -16,7 +16,7 @@ module {
 
   public type ForwardTransaction = {
     tokenName : Text;
-    recipient : Principal;
+    recipient : Text;
     amount : Nat;
     percentage : Float;
     timestamp : Int;
