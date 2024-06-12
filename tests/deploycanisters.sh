@@ -143,26 +143,10 @@ export SM_ACC_IDENTIFIER=$(dfx ledger account-id --of-canister backend)
 # add the ckBTC, ckETH and ICP ledgers for monitoring
 echo "adding ledgers ICP,ckETH and ckBTX for monitoring"
 dfx canister call backend addNewCanister --network "${NETWORK}" '("ICP","'${ICPLEDGERID}'")'
-# dfx canister call backend addNewCanister --network "${NETWORK}" '("ckETH","'${CKETHLEDGERID}'")'
-# dfx canister call backend addNewCanister --network "${NETWORK}" '("ckBTC","'${CKBTCLEDGERID}'")'
+dfx canister call backend addNewCanister --network "${NETWORK}" '("ckETH","'${CKETHLEDGERID}'")'
+dfx canister call backend addNewCanister --network "${NETWORK}" '("ckBTC","'${CKBTCLEDGERID}'")'
 
-# start the montoring service
-echo "starting the monitoring service"
-# dfx canister call backend --network "${NETWORK}" startBalanceMonitor
-
-# chmod a+x ./send_split_payment.sh
-#  source ./send_split_payment.sh
+chmod a+x ./send_split_payment.sh
+ source ./send_split_payment.sh
 
 
-# chmod a+x ./no_vendor.sh
-#  source ./no_vendor.sh
-
-# dfx canister call backend addNewCanister --ic '("ckETH","ss2fx-dyaaa-aaaar-qacoq-cai")'
-# dfx canister call ICP_ledger icrc1_transfer '
-#   (record {
-#     to=(record {
-#       owner=(principal "br5f7-7uaaa-aaaaa-qaaca-cai")
-#     });
-#     amount=100000
-#   })
-# '

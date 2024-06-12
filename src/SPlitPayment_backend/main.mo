@@ -188,10 +188,10 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
     await monitorBalances();
   };
 
-  public func startBalanceMonitor() : async Result.Result<Nat, Text> {
-    let timer = recurringTimer<system>(#seconds(monitorDuration), monitorBalances);
-    return #ok(timer);
-  };
+  // public func startBalanceMonitor() : async Result.Result<Nat, Text> {
+  //   let timer = recurringTimer<system>(#seconds(monitorDuration), monitorBalances);
+  //   return #ok(timer);
+  // };
 
   func monitorBalances() : async () {
     for ((tokenName, data) in indexCanisters.entries()) {
@@ -265,24 +265,26 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
           let tranFe = await ledger.icrc1_fee();
           //get the 99%
           let percent99ToSend = retrieveAmount(transfer.amount, 0.99);
-          Debug.print(" sending 99% to the vendor");
+          let percent1ToSend = retrieveAmount(transfer.amount, 0.01);
+          Debug.print("99% icrc  " # debug_show(percent99ToSend));
+          
           switch (vendorAddress) {
             case (?vendor) {
-              let venP = Principal.fromText(vendor);
-              //send back the 99% - transaction fees
-              let res = await transferICRC(ledger, percent99ToSend - tranFe, venP, 100);
-              //transfer the 1% amongst all the regiistered addresses in their corresponding percentages
-              let percent1ToSend = retrieveAmount(transfer.amount, 0.01);
 
-              switch (commisionerAccount) {
-                case (?commissioner) {
-                  let comP = Principal.fromText(commissioner);
-                  let indShare = retrieveAmount(percent1ToSend, 1);
-                  Debug.print("send 1% to the commissioner's account");
-                  let res = await transferICRC(ledger, indShare -tranFe, comP, 100);
-                };
-                case (null) {};
-              };
+              let venP = Principal.fromText(vendor);
+              let amToSend : Nat = percent99ToSend -tranFe;
+                let res = await transferICRC(ledger, amToSend, venP, 100);
+                //transfer the 1% amongst all the regiistered addresses in their corresponding percentages
+
+                  switch (commisionerAccount) {
+                    case (?commissioner) {
+                      let comP = Principal.fromText(commissioner);
+                      let indShare = retrieveAmount(percent1ToSend, 1);
+                      Debug.print("send 1% to the commissioner's account");
+                      let res = await transferICRC(ledger, indShare -tranFe, comP, 100);
+                    };
+                    case (null) {};
+                  };
             };
             case (null) {
               //if there is no vendor,send the 99% backend to the account that deposited the funds
@@ -290,6 +292,7 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
               let res = await transferICRC(ledger, percent99ToSend - tranFe, transfer.from.owner, 100);
             };
           };
+
         };
       };
       case (null) {};
@@ -327,9 +330,9 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
                 case (?vendor) {
                   let venP = Principal.fromText(vendor);
                   Debug.print("send 99%  ICP to the vendor");
-                  let amToSend :Nat = percent99ToSend-transFee;
+                  let amToSend : Nat = percent99ToSend -transFee;
 
-                  if (Nat.greater(amToSend, transFee) and Nat.greaterOrEqual(scBal,amToSend)) {
+                  if (Nat.greater(amToSend, transFee) and Nat.greaterOrEqual(scBal, amToSend)) {
                     Debug.print("amount 99% " # debug_show (amToSend));
                     await transferIcpToPrincipal(venP, amToSend, 99);
 
@@ -348,7 +351,7 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
                       };
 
                     } else {
-                      Debug.print(" commision too loow to move" # debug_show(Nat.sub(percent1ToSend, transFee)));
+                      Debug.print(" commision too loow to move" # debug_show (Nat.sub(percent1ToSend, transFee)));
                     };
 
                   } else {

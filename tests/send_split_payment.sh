@@ -6,7 +6,8 @@ export COMMACC="bd3h5-lf4h2-bovez-alh3a-j4c4f-y7lz2-5vkq5-k22vv-j2vrl-bgyvz-yqe"
 # trigger the splitting payment feature by depositing funds into the smart contract account
 
 # swtich to the testIdentity
-echo "TRIGGERING THE SPLITTING PAYMENT FEATURE FOR ckETH"
+echo -e "\033[32m TRIGGERING THE SPLITTING PAYMENT FEATURE FOR ckETH \033[0m"
+
 echo "switching to the testIdentity"
 dfx identity use testIdentity
 
@@ -14,6 +15,7 @@ dfx identity use testIdentity
 
 echo "check the icp balances of the vendor and commissioner accounts before spliiting"
 echo "initial ICP balance for the vendor"
+
 dfx canister call ICP_ledger icrc1_balance_of --network "${NETWORK}" '(
     record{
         owner = principal "'${VENDORACC}'";
@@ -41,7 +43,7 @@ dfx canister --network "${NETWORK}" call ICP_ledger icrc1_transfer '
     to=(record {
       owner=(principal "'${BACKENDID}'")
     });
-    amount=100000
+    amount=100000000
   })
 '
 # echo "sending a ckETH payment to the smart contract"
@@ -85,5 +87,5 @@ dfx canister call ICP_ledger icrc1_balance_of --network "${NETWORK}"  '(
 )'
 
 
-# chmod a+x ./no_vendor.sh
-#  source ./no_vendor.sh
+chmod a+x ./no_vendor.sh
+ source ./no_vendor.sh

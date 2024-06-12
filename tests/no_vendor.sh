@@ -1,7 +1,8 @@
 # Scenario when the vendor is not configured
 # the smart contract should send back 99% to the sender
 
-echo "TRIGGERING THE NO VENDOR SCENARIO FOR ICP"
+echo -e "\033[32m TRIGGERING THE NO VENDOR SCENARIO FOR ICP \033[0m"
+
 echo "switching to the testIdentity"
 dfx identity use testIdentity
 
@@ -57,9 +58,11 @@ export ICP_AFTER_REFUND=$(dfx canister call ICP_ledger icrc1_balance_of --networ
 
 # display the balances
 echo "ICP balance before"
-echo $ICP_BEFORE
+echo -e "\033[32m '${ICP_BEFORE}' \033[0m"
+
 echo "ICP balance after transacting"
-echo $ICP_AFTER_SENDING
+echo -e "\033[32m '${ICP_AFTER_SENDING}' \033[0m"
+
 echo "ICP balance after refund"
-echo $ICP_AFTER_REFUND
+echo -e "\033[32m '${ICP_AFTER_REFUND}' \033[0m"
 
