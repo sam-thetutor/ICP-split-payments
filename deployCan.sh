@@ -136,6 +136,8 @@ dfx deploy backend --network "${NETWORK}" --argument '
     }
 ' --mode=reinstall -y
 
+
+
 # dfx deploy backend --ic --argument '
 #     record {
 #         icpLedger = "ryjl3-tyaaa-aaaaa-aaaba-cai";

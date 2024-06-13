@@ -381,10 +381,11 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
 
               if (isComm.isPresent) {
                 //send funds to the commissioner if they are more than the transfer fees
+                let comP = Principal.fromText(isComm.id);
                 Debug.print("preo to send 1% to comm");
                 if (Nat.greaterOrEqual(percent1ToSend, Nat.mul(2, transFee))) {
                   let am1Send : Nat = percent1ToSend -transFee;
-                  await transferIcpToPrincipal(venP, am1Send, 99);
+                  await transferIcpToPrincipal(comP, am1Send, 100);
                   Debug.print("done sending comm their portion");
                 } else {
                   Debug.print("comm amount too low to be sent");
