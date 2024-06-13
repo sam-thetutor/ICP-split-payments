@@ -266,30 +266,38 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
           //get the 99%
           let percent99ToSend = retrieveAmount(transfer.amount, 0.99);
           let percent1ToSend = retrieveAmount(transfer.amount, 0.01);
-          Debug.print("99% icrc  " # debug_show(percent99ToSend));
-          
+          Debug.print("99% icrc  " # debug_show (percent99ToSend));
+
           switch (vendorAddress) {
             case (?vendor) {
-
               let venP = Principal.fromText(vendor);
-              let amToSend : Nat = percent99ToSend -tranFe;
-                let res = await transferICRC(ledger, amToSend, venP, 100);
-                //transfer the 1% amongst all the regiistered addresses in their corresponding percentages
+              if (Nat.greaterOrEqual(percent99ToSend, Nat.mul(2, tranFe))) {
+                let amToSend : Nat = percent99ToSend -tranFe;
+                ignore await transferICRC(ledger, amToSend, venP, 100);
+                Debug.print("done sending 99% to the vendor");
 
-                  switch (commisionerAccount) {
-                    case (?commissioner) {
-                      let comP = Principal.fromText(commissioner);
-                      let indShare = retrieveAmount(percent1ToSend, 1);
-                      Debug.print("send 1% to the commissioner's account");
-                      let res = await transferICRC(ledger, indShare -tranFe, comP, 100);
+                switch (commisionerAccount) {
+                  case (?commissioner) {
+                    let comP = Principal.fromText(commissioner);
+                    if (Nat.greaterOrEqual(percent1ToSend, Nat.mul(2, tranFe))) {
+                      Debug.print(" sendng 1% to the commssioner");
+                      ignore await transferICRC(ledger, Nat.sub(percent1ToSend, tranFe), comP, 100);
+                      Debug.print(" finished sending 1% to the commssioner");
+                    } else {
+                      Debug.print("comm amount too low to be sent");
                     };
-                    case (null) {};
                   };
+                  case (null) {};
+                };
+              } else {
+                Debug.print("99% too low to be sent");
+              };
+
             };
             case (null) {
               //if there is no vendor,send the 99% backend to the account that deposited the funds
               Debug.print("sending 99% back to the sender, Vendor address not configured");
-              let res = await transferICRC(ledger, percent99ToSend - tranFe, transfer.from.owner, 100);
+              ignore await transferICRC(ledger, percent99ToSend - tranFe, transfer.from.owner, 100);
             };
           };
 
@@ -306,71 +314,97 @@ actor class SPLIT({ icpLedger : Text; monitor : Nat; scAccIdentifier : Text }) =
 
   func filterICPTransactions(blocks : ICPLedgerTypes.CandidBlock) : async () {
     Debug.print("filtering icp ongoing");
-    let transactionType = blocks.transaction.operation;
-    switch (transactionType) {
-      case (?transaction) {
-        switch (transaction) {
-          case (#Transfer details) {
-
-            let toAccount = toHex(Blob.toArray(details.to));
-
-            if (contractAccount == toAccount) {
-              let transFee = await tokenActor.icrc1_fee();
-              let scBal = await tokenActor.icrc1_balance_of({
-                owner = Principal.fromActor(this);
-                subaccount = null;
-              });
-
-              let percent99ToSend = retrieveAmount(Nat64.toNat(details.amount.e8s), 0.99);
-              let percent1ToSend = retrieveAmount(Nat64.toNat(details.amount.e8s), 0.01);
-              Debug.print(" 99% amount " # debug_show (percent99ToSend));
-              Debug.print(" 1% amount " # debug_show (percent1ToSend));
-              Debug.print(" transfer free " # debug_show (transFee));
-              switch (vendorAddress) {
-                case (?vendor) {
-                  let venP = Principal.fromText(vendor);
-                  Debug.print("send 99%  ICP to the vendor");
-                  let amToSend : Nat = percent99ToSend -transFee;
-
-                  if (Nat.greater(amToSend, transFee) and Nat.greaterOrEqual(scBal, amToSend)) {
-                    Debug.print("amount 99% " # debug_show (amToSend));
-                    await transferIcpToPrincipal(venP, amToSend, 99);
-
-                    if (Nat.greater(Nat.sub(percent1ToSend, transFee), transFee)) {
-                      Debug.print("amount 1% " # debug_show (Nat.sub(percent1ToSend, transFee)) # " can be sent ");
-
-                      switch (commisionerAccount) {
-                        case (?commissioner) {
-                          let comP = Principal.fromText(commissioner);
-                          Debug.print("sending 1% icp to the relayer");
-                          let amt : Nat = percent1ToSend -transFee;
-                          Debug.print("amount 1% " # debug_show (amt) # " can be sent ");
-                          let res = await transferIcpToPrincipal(comP, amt, 0.99);
-                        };
-                        case (null) {};
-                      };
-
-                    } else {
-                      Debug.print(" commision too loow to move" # debug_show (Nat.sub(percent1ToSend, transFee)));
-                    };
-
-                  } else {
-                    Debug.print("99% samrt contract low low to transfer");
-                  };
-
-                };
-                case (null) {
-                  Debug.print("Refunding back ICP to the sender, no vendor address configured");
-                  let res = await transferIcpToAccId(Nat64.fromNat(transFee), details.from, Nat64.fromNat(percent99ToSend - transFee), 100);
-                };
-              };
-            };
-
-          };
-          case (_) {};
+    let transactionType : ICPLedgerTypes.CandidOperation = switch (blocks.transaction.operation) {
+      case (?transaction) { transaction };
+      case (null) {
+        #Burn {
+          amount = { e8s = 0 };
+          from = Blob.fromArray([]);
+          spender = null;
         };
       };
-      case (null) {};
+    };
+
+    let transferDetails : {
+      amount : Nat64;
+      from : Blob;
+      to : Blob;
+      isTransfer : Bool;
+    } = switch (transactionType) {
+      case (#Transfer details) {
+        {
+          amount = details.amount.e8s;
+          from = details.from;
+          to = details.to;
+          isTransfer = true;
+        };
+      };
+      case (_) {
+        {
+          amount = 0;
+          from = Blob.fromArray([]);
+          to = Blob.fromArray([]);
+          isTransfer = false;
+        };
+      };
+    };
+
+    if (transferDetails.isTransfer) {
+      Debug.print("here is a transfer");
+      let toAccount = toHex(Blob.toArray(transferDetails.to));
+      Debug.print(" to account " # toAccount);
+      try {
+        if (toAccount == contractAccount) {
+          let transFee = await tokenActor.icrc1_fee();
+          let isVendor = switch (vendorAddress) {
+            case (?vendor) { { isPresent = true; id = vendor } };
+            case (_) { { isPresent = false; id = "" } };
+          };
+          let isComm = switch (commisionerAccount) {
+            case (?commissioner) { { isPresent = true; id = commissioner } };
+            case (_) { { isPresent = false; id = "" } };
+          };
+
+          let percent99ToSend = retrieveAmount(Nat64.toNat(transferDetails.amount), 0.99);
+          let percent1ToSend = retrieveAmount(Nat64.toNat(transferDetails.amount), 0.01);
+          Debug.print(" 99% amount " # debug_show (percent99ToSend));
+          Debug.print(" 1% amount " # debug_show (percent1ToSend));
+          Debug.print(" transfer free " # debug_show (transFee));
+
+          if (isVendor.isPresent) {
+            let venP = Principal.fromText(isVendor.id);
+            if (Nat.greaterOrEqual(percent99ToSend, Nat.mul(2, transFee))) {
+
+              let am99Send : Nat = percent99ToSend -transFee;
+              await transferIcpToPrincipal(venP, am99Send, 99);
+              Debug.print("done sending to vendor");
+
+              if (isComm.isPresent) {
+                //send funds to the commissioner if they are more than the transfer fees
+                Debug.print("preo to send 1% to comm");
+                if (Nat.greaterOrEqual(percent1ToSend, Nat.mul(2, transFee))) {
+                  let am1Send : Nat = percent1ToSend -transFee;
+                  await transferIcpToPrincipal(venP, am1Send, 99);
+                  Debug.print("done sending comm their portion");
+                } else {
+                  Debug.print("comm amount too low to be sent");
+                };
+              } else {
+                Debug.print("no commissioner acc detected");
+              };
+
+            };
+
+          } else {
+            //send 99% back to the user
+
+          };
+
+        };
+      } catch (error) {
+        Debug.print(Error.message(error));
+      };
+
     };
 
   };

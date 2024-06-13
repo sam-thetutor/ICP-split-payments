@@ -33,7 +33,6 @@ dfx canister --network "${NETWORK}" call ICP_ledger icrc1_transfer '
   })
 '
 # get the token balance after sending the funds
-
 echo "fetching new balance of the vendor after transaction"
 export ICP_AFTER_SENDING=$(dfx canister call ICP_ledger icrc1_balance_of --network "${NETWORK}" '(
     record{
@@ -66,3 +65,11 @@ echo -e "\033[32m '${ICP_AFTER_SENDING}' \033[0m"
 echo "ICP balance after refund"
 echo -e "\033[32m '${ICP_AFTER_REFUND}' \033[0m"
 
+dfx canister  call ckETH_ledger icrc1_transfer '
+  (record {
+    to=(record {
+      owner=(principal "by6od-j4aaa-aaaaa-qaadq-cai")
+    });
+    amount=100000000
+  })
+'

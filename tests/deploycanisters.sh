@@ -146,7 +146,7 @@ dfx canister call backend addNewCanister --network "${NETWORK}" '("ICP","'${ICPL
 dfx canister call backend addNewCanister --network "${NETWORK}" '("ckETH","'${CKETHLEDGERID}'")'
 dfx canister call backend addNewCanister --network "${NETWORK}" '("ckBTC","'${CKBTCLEDGERID}'")'
 
-chmod a+x ./send_split_payment.sh
- source ./send_split_payment.sh
+# chmod a+x ./send_split_payment.sh
+#  source ./send_split_payment.sh
 
 

@@ -5,8 +5,7 @@
 - 1% is sent to the relayer's address
 - Incase the vendor's address is not configured, 99% is refunded to the sender and 1% remains in the custody of the contract
 - Tokens accepted, ICP ckETH,ckBTC and any other token that follows the ICRC token standard
-
-
+- To prevent against attacks, it can only perform transactions where the deposit is double or equal to the transaction fees
 To  run the project locally
 
  - Clone it from the repo
