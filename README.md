@@ -6,7 +6,20 @@
 - Incase the vendor's address is not configured, 99% is refunded to the sender and 1% remains in the custody of the contract
 - Tokens accepted, ICP ckETH,ckBTC and any other token that follows the ICRC token standard
 - To prevent against attacks, it can only perform transactions where the deposit is double or equal to the transaction fees
-To  run the project locally
+
+
+
+## Steps on how to use the smart contract
+
+- Deploy the contract on the network of your choice(local or ic)
+- Add the token ledger canisters that you want to be monitored using the `addNewCanister` method. Forexample to add icp ledger, call the addNewCanister method and supply "ICP" and "ryjl3-tyaaa-aaaaa-aaaba-cai". token names should be in capital letters
+- Send the payment to the smart contract principal address and it will be split in a ratio of 99:1
+- 99% will be sent to the vendor while 1% will be sent to the elayer(commissioner) that you specify
+- call the `get_payments_history` method to see all the split payments that have happened.
+
+GOOD LUCK
+
+**To  run the project locally**
 
  - Clone it from the repo
 
@@ -51,4 +64,3 @@ Once the smart contract is deploy, it automatically starts a monitoring instance
   ```bash
   /deploycanisters.sh
   ```
-
