@@ -25,3 +25,8 @@ dfx deploy backend --network "${NETWORK}" --argument '
         scAccIdentifier = "'${SM_ACC_IDENTIFIER}'"
     }
 ' --mode=reinstall -y
+
+echo "adding ledgers ICP,ckETH and ckBTC for monitoring"
+dfx canister call backend addNewCanister --network "${NETWORK}" '("ICP","'${ICPLEDGERID}'")'
+dfx canister call backend addNewCanister --network "${NETWORK}" '("ckETH","'${CKETHLEDGERID}'")'
+dfx canister call backend addNewCanister --network "${NETWORK}" '("ckBTC","'${CKBTCLEDGERID}'")'
