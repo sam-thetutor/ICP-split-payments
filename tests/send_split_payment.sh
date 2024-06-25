@@ -61,7 +61,7 @@ echo "waiting "
 echo $MONITOR
 echo "for the smart contract to sync the transactions"
 
-sleep 15
+sleep 60S
 # fetch the balances for the vendor addresses and commissioner account to ensure they match the respective amounts
 
 # get the new balances after the smart contract has carried out the splitting

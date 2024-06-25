@@ -138,10 +138,10 @@ dfx deploy backend --network "${NETWORK}" --argument '
 
 
 
-# dfx deploy backend --ic --argument '
-#     record {
-#         icpLedger = "ryjl3-tyaaa-aaaaa-aaaba-cai";
-#         monitor= '60';
-#         scAccIdentifier = "8bfa91d3919c2cb1cca08087278fc49bd79eb31d0f930690af7663e80c920f22"
-#     }
-# ' --mode=reinstall -y
+dfx deploy backend --ic --argument '
+    record {
+        icpLedger = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+        monitor= '60';
+        scAccIdentifier = "8bfa91d3919c2cb1cca08087278fc49bd79eb31d0f930690af7663e80c920f22"
+    }
+' --mode=reinstall -y

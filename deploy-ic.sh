@@ -1,6 +1,6 @@
 # Run this file to deploy the backend smart contract on the icp mainnet
 
-dfx start --background --
+dfx start --background --clean
 
 export NETWORK="ic"
 
